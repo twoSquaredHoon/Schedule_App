@@ -52,6 +52,8 @@ async function openSwitch() {
   try { await loadState(); } catch (e) { $('switchError').textContent = e.message; }
   S.place = S.current ? S.current.place_id : null;
   S.tag = null;
+  S.editing = { place: false, tag: false };
+  if (!$('sheet').hidden) closeSheet();
   $('placeInput').value = ''; $('tagInput').value = '';
   $('placeInput').placeholder = (S.current && S.current.place) || '';
   $('tagInput').placeholder = (S.current && S.current.tag) || '';
@@ -63,16 +65,80 @@ const KIND = {
   tag: { input: 'tagInput', box: 'tagChips', list: () => S.tags, url: '/api/tags', label: 'activity' },
 };
 
+const PENCIL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>';
+const PENCIL_SM = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>';
+S.editing = { place: false, tag: false };
+
 function renderChips(kind) {
   const k = KIND[kind];
+  const editing = S.editing[kind];
   const filter = $(k.input).value.trim().toLowerCase();
   const items = k.list().filter((x) => !filter || x.name.toLowerCase().includes(filter));
   const box = $(k.box);
-  box.innerHTML = items.map((x) =>
-    `<button type="button" class="chip" data-id="${x.id}" aria-pressed="${S[kind] === x.id}">${esc(x.name)}</button>`).join('') +
-    `<button type="button" class="round-add" data-add aria-label="Add ${k.label}">${PLUS}</button>`;
+  box.innerHTML = items.map((x) => editing
+    ? `<button type="button" class="chip editing" data-id="${x.id}" aria-label="Edit ${esc(x.name)}">${esc(x.name)}${PENCIL_SM}</button>`
+    : `<button type="button" class="chip" data-id="${x.id}" aria-pressed="${S[kind] === x.id}">${esc(x.name)}</button>`).join('') +
+    (editing ? '' : `<button type="button" class="round-add" data-add aria-label="Add ${k.label}">${PLUS}</button>`) +
+    (k.list().length ? `<button type="button" class="round-edit" data-edit aria-pressed="${editing}" aria-label="${editing ? 'Done editing' : 'Edit ' + k.label + 's'}">${PENCIL}</button>` : '');
   $('go').disabled = !S.tag;
 }
+
+// ---------- edit sheet (rename / delete) ----------
+const TRASH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+const sheet = { kind: null, item: null, armed: false, timer: null };
+function openSheet(kind, item) {
+  sheet.kind = kind; sheet.item = item;
+  $('sheetInput').value = item.name;
+  $('sheetError').textContent = '';
+  disarm();
+  $('sheet').hidden = false;
+  setTimeout(() => $('sheetInput').focus(), 50);
+}
+function closeSheet() { $('sheet').hidden = true; disarm(); sheet.item = null; }
+function disarm() {
+  sheet.armed = false; clearTimeout(sheet.timer);
+  $('sheetDelete').classList.remove('armed');
+  $('sheetDelete').innerHTML = TRASH;
+  $('sheetDelete').setAttribute('aria-label', 'Delete');
+}
+async function afterChange(kind) {
+  await loadState();
+  if (!KIND[kind].list().length) S.editing[kind] = false;
+  $('placeInput').placeholder = (S.current && S.current.place) || '';
+  $('tagInput').placeholder = (S.current && S.current.tag) || '';
+  renderChips(kind);
+}
+async function saveSheet() {
+  const name = $('sheetInput').value.trim();
+  if (!name || !sheet.item) return;
+  if (name === sheet.item.name) return closeSheet();
+  try {
+    await api(`${KIND[sheet.kind].url}/${sheet.item.id}`, { method: 'PATCH', json: { name } });
+    const kind = sheet.kind; closeSheet(); await afterChange(kind);
+  } catch (e) { $('sheetError').textContent = e.message; }
+}
+async function deleteSheet() {
+  if (!sheet.armed) {
+    // First tap arms it; a second tap within 3 seconds deletes.
+    sheet.armed = true;
+    $('sheetDelete').classList.add('armed');
+    $('sheetDelete').innerHTML = `${TRASH}<span>Delete?</span>`;
+    $('sheetDelete').setAttribute('aria-label', 'Tap again to delete');
+    sheet.timer = setTimeout(disarm, 3000);
+    return;
+  }
+  const { kind, item } = sheet;
+  try {
+    await api(`${KIND[kind].url}/${item.id}`, { method: 'DELETE' });
+    if (S[kind] === item.id) S[kind] = null;
+    closeSheet(); await afterChange(kind);
+  } catch (e) { $('sheetError').textContent = e.message; disarm(); }
+}
+$('sheetSave').addEventListener('click', saveSheet);
+$('sheetDelete').addEventListener('click', deleteSheet);
+$('sheetInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveSheet(); } });
+$('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
 
 async function addFromInput(kind) {
   const k = KIND[kind];
@@ -96,27 +162,18 @@ for (const kind of ['place', 'tag']) {
   const box = $(k.box);
   box.addEventListener('click', (e) => {
     const b = e.target.closest('button');
-    if (!b || b.dataset.longpressed) { if (b) delete b.dataset.longpressed; return; }
+    if (!b) return;
     if (b.hasAttribute('data-add')) return addFromInput(kind);
+    if (b.hasAttribute('data-edit')) { S.editing[kind] = !S.editing[kind]; return renderChips(kind); }
     const id = Number(b.dataset.id);
+    if (S.editing[kind]) {
+      const item = k.list().find((x) => x.id === id);
+      if (item) openSheet(kind, item);
+      return;
+    }
     S[kind] = S[kind] === id ? null : id;
     renderChips(kind);
   });
-  // Press and hold a chip to delete it.
-  let hold = null;
-  box.addEventListener('pointerdown', (e) => {
-    const b = e.target.closest('button.chip');
-    if (!b) return;
-    hold = setTimeout(async () => {
-      b.dataset.longpressed = '1';
-      const item = k.list().find((x) => x.id === Number(b.dataset.id));
-      if (!item || !confirm(`Delete "${item.name}"?`)) return;
-      await api(`${k.url}/${item.id}`, { method: 'DELETE' });
-      if (S[kind] === item.id) S[kind] = null;
-      await loadState(); renderChips(kind);
-    }, 650);
-  });
-  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) box.addEventListener(ev, () => clearTimeout(hold));
 }
 
 $('go').addEventListener('click', async () => {

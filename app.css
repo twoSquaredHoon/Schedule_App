@@ -64,3 +64,27 @@ input, button { text-transform: uppercase; letter-spacing: 0.05em; }
 .meme-actions { position: sticky; bottom: calc(env(safe-area-inset-bottom) + 16px); margin-top: auto; display: flex; gap: 18px; padding-top: 12px; }
 .meme-actions button { flex: 1; height: 60px; border: none; border-radius: 30px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .meme-actions button.accent { flex: 2; color: var(--accent); }
+
+/* Edit mode for places / activities */
+.round-edit {
+  width: 40px; height: 40px; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 20px; color: var(--muted);
+  background: var(--bg); box-shadow: 4px 4px 8px var(--shade), -4px -4px 8px var(--light);
+}
+.round-edit[aria-pressed="true"] { color: var(--accent); box-shadow: inset 3px 3px 6px var(--shade), inset -3px -3px 6px var(--light); }
+.chip.editing { display: inline-flex; align-items: center; gap: 8px; outline: 2px dashed var(--dash); outline-offset: 3px; }
+.chip.editing svg { color: var(--muted); }
+
+/* Edit sheet */
+.sheet-wrap {
+  position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center;
+  padding: 16px 16px calc(env(safe-area-inset-bottom) + 16px); background: rgba(16, 18, 24, 0.35);
+}
+.sheet { width: 100%; max-width: 448px; padding: 24px; border-radius: 32px; display: flex; flex-direction: column; gap: 16px; }
+.sheet input { height: 58px; padding: 0 22px; border: none; border-radius: 20px; font-size: 18px; font-weight: 600; outline: none; }
+.sheet .error { margin: -4px 8px 0; }
+.sheet-actions { display: flex; gap: 16px; }
+.sheet-actions button { height: 60px; border: none; border-radius: 30px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.sheet-actions .danger { flex: 1; color: var(--danger); font-size: 14px; font-weight: 800; transition: flex 0.15s; }
+.sheet-actions .danger.armed { flex: 2; background: var(--danger); color: var(--bg); box-shadow: none; }
+.sheet-actions .accent { flex: 2; color: var(--accent); }

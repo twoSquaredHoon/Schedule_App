@@ -81,6 +81,20 @@
   </div>
 </main>
 
+<!-- EDIT SHEET: rename or delete a place / activity -->
+<div id="sheet" class="sheet-wrap" hidden>
+  <div class="sheet raised" role="dialog" aria-modal="true" aria-label="Edit">
+    <input id="sheetInput" class="inset" type="text" aria-label="Name" autocomplete="off" enterkeyhint="done">
+    <p class="error" id="sheetError" role="alert"></p>
+    <div class="sheet-actions">
+      <button id="sheetDelete" class="raised danger" type="button" aria-label="Delete"></button>
+      <button id="sheetSave" class="raised accent" type="button" aria-label="Save">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="/app/shared.js"></script>
 <script src="/app/app.js"></script>
 </body>

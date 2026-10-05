@@ -13,4 +13,4 @@ The server in **Schedule_Website** hosts this folder at `/app/`, so keep the two
 Tips:
 - Tap the card on Home to switch.
 - Type in a box and tap the round **+** (or press return) to add a new place or activity.
-- Press and hold a place or activity to delete it.
+- Tap the pencil next to the **+** to edit: tap a place or activity to rename it, or delete it (tap the trash twice). Deleting only hides it from the app — past entries keep the name.
