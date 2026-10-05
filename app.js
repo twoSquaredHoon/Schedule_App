@@ -140,19 +140,28 @@ $('sheetInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.
 $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
 
+const adding = { place: false, tag: false };
 async function addFromInput(kind) {
+  if (adding[kind]) return; // ignore extra taps while one add is still going
   const k = KIND[kind];
   const name = $(k.input).value.trim();
   if (!name) { $(k.input).focus(); return; }
   const existing = k.list().find((x) => x.name.toLowerCase() === name.toLowerCase());
+  adding[kind] = true;
+  $(k.box).querySelector('[data-add]')?.setAttribute('disabled', '');
   try {
     const item = existing || await api(k.url, { json: { name } });
-    if (!existing) k.list().unshift(item);
+    // Never show the same place/activity twice.
+    if (!k.list().some((x) => x.id === item.id)) k.list().unshift(item);
     S[kind] = item.id;
     $(k.input).value = '';
     $(k.input).blur();
+  } catch (e) {
+    $('switchError').textContent = e.message;
+  } finally {
+    adding[kind] = false;
     renderChips(kind);
-  } catch (e) { $('switchError').textContent = e.message; }
+  }
 }
 
 for (const kind of ['place', 'tag']) {
